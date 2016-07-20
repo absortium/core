@@ -2,12 +2,14 @@ import hashlib
 import hmac
 
 from rest_framework.authentication import BaseAuthentication
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, AuthenticationFailed
 
+from core.utils.logging import getPrettyLogger
 from .models import Client
 
 __author__ = 'andrew.shvv@gmail.com'
 
+logger = getPrettyLogger(__name__)
 
 class APIKeyAuth(BaseAuthentication):
     def authenticate(self, request):
@@ -28,13 +30,13 @@ class APIKeyAuth(BaseAuthentication):
 
         # TODO: raise PermissionDenied if timestamp is expired!
         timestamp = request.META['HTTP_ACCESS_TIMESTAMP']
-        version = request.META['HTTP_ACCESS_VERSION']
+        version = request.META['HTTP_VERSION']
         data = request.body
 
         try:
             client = Client.objects.get(api_key=key)
         except Client.DoesNotExist:
-            return None, None
+            raise AuthenticationFailed('Invalid API_KEY, API_SECRET pair')
 
         if signature == hmac.new(client.api_secret.encode(), data, hashlib.sha256).hexdigest():
             return client.owner, None
